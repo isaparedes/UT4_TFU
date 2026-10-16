@@ -12,23 +12,25 @@ from sqlalchemy.orm import relationship
 
 from app.database import Base
 
-
 class Rol(str, enum.Enum):
+    ADOPTANTE = "adoptante"
+    DUENO_HOGAR = "dueno_hogar"
     VOLUNTARIO = "voluntario"
     ADMIN = "admin"
 
+class EspecieAnimal(str, enum.Enum):
+    PERRO = "perro"
+    GATO = "gato"
 
 class EstadoAnimal(str, enum.Enum):
     DISPONIBLE = "disponible"
     RESERVADO = "reservado"
     ADOPTADO = "adoptado"
 
-
 class EstadoSolicitud(str, enum.Enum):
     PENDIENTE = "pendiente"
     APROBADA = "aprobada"
     RECHAZADA = "rechazada"
-
 
 # ---- Componente: Autenticación ----
 class Usuario(Base):
@@ -37,8 +39,7 @@ class Usuario(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    rol = Column(Enum(Rol), nullable=False, default=Rol.VOLUNTARIO)
-
+    rol = Column(Enum(Rol), nullable=False, default=Rol.ADOPTANTE)
 
 # ---- Componente: Animales ----
 class Animal(Base):
@@ -46,10 +47,9 @@ class Animal(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, nullable=False)
-    especie = Column(String, nullable=False)  # perro / gato
+    especie = Column(Enum(EspecieAnimal), nullable=False)
     estado = Column(Enum(EstadoAnimal), nullable=False, default=EstadoAnimal.DISPONIBLE)
     creado_en = Column(DateTime, default=datetime.utcnow)
-
 
 # ---- Componente: Hogares Transitorios ----
 class HogarTransitorio(Base):
@@ -59,7 +59,6 @@ class HogarTransitorio(Base):
     responsable = Column(String, nullable=False)
     direccion = Column(String, nullable=False)
     disponible = Column(Boolean, nullable=False, default=True)
-
 
 # ---- Componente: Adopciones ----
 class Solicitud(Base):
@@ -71,6 +70,6 @@ class Solicitud(Base):
     interesado_email = Column(String, nullable=False)
     estado = Column(Enum(EstadoSolicitud), nullable=False, default=EstadoSolicitud.PENDIENTE)
     creada_en = Column(DateTime, default=datetime.utcnow)
-
     animal = relationship("Animal")
     hogar = relationship("HogarTransitorio")
+    trabajo_id = Column(String, unique=True, nullable=True)

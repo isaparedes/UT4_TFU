@@ -1,7 +1,6 @@
 """
 Componente Animales.
-Expone IAnimales (REST) y, para uso interno de Adopciones, las funciones
-reservar_animal() / liberar_animal() (equivalentes a IReservarAnimal).
+
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session

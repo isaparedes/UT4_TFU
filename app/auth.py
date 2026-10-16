@@ -52,6 +52,19 @@ def validar_token(token: str = Depends(oauth2_scheme)) -> dict:
     except JWTError:
         raise credenciales_invalidas
 
+def requerir_rol(*roles: models.Rol):
+    roles_permitidos = {rol.value for rol in roles}
+
+    def verificar(usuario: dict = Depends(validar_token)) -> dict:
+        if usuario.get("rol") not in roles_permitidos:
+            raise HTTPException(
+                status_code=403,
+                detail="No tenés permisos para realizar esta operación",
+            )
+        return usuario
+
+    return verificar
+
 
 def requerir_admin(usuario: dict = Depends(validar_token)) -> dict:
     if usuario["rol"] != "admin":
@@ -67,7 +80,8 @@ def registrar(datos: schemas.UsuarioCreate, db: Session = Depends(get_db)):
     usuario = models.Usuario(
         email=datos.email,
         password_hash=pwd_context.hash(datos.password),
-        rol=datos.rol,
+        rol=models.Rol(datos.rol)
+,
     )
     db.add(usuario)
     db.commit()

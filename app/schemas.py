@@ -1,35 +1,31 @@
 """Esquemas Pydantic (entrada/salida de la API REST) por componente."""
 from pydantic import BaseModel, EmailStr
-from app.models import Rol, EstadoAnimal, EstadoSolicitud
-
+from app.models import Rol, EspecieAnimal, EstadoAnimal, EstadoSolicitud
+from typing import Literal
 
 # ---- Autenticación ----
 class UsuarioCreate(BaseModel):
     email: EmailStr
     password: str
-    rol: Rol = Rol.VOLUNTARIO
-
+    rol: Rol = Rol.ADOPTANTE
 
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
-
 # ---- Animales ----
 class AnimalCreate(BaseModel):
     nombre: str
-    especie: str
-
+    especie: EspecieAnimal
 
 class AnimalOut(BaseModel):
     id: int
     nombre: str
-    especie: str
+    especie: EspecieAnimal
     estado: EstadoAnimal
 
     class Config:
         from_attributes = True
-
 
 # ---- Hogares Transitorios ----
 class HogarCreate(BaseModel):
@@ -46,13 +42,9 @@ class HogarOut(BaseModel):
     class Config:
         from_attributes = True
 
-
 # ---- Adopciones ----
 class SolicitudCreate(BaseModel):
     animal_id: int
-    interesado_email: EmailStr
-    asignar_hogar: bool = True
-
 
 class SolicitudOut(BaseModel):
     id: int
@@ -63,3 +55,16 @@ class SolicitudOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+# Patrón de rendimiento: Queue-Based Load Leveling
+class SolicitudEncolada(BaseModel):
+    job_id: str
+    estado: str = "encolada"
+    mensaje: str
+
+
+class EstadoTrabajo(BaseModel):
+    job_id: str
+    estado: str
+    solicitud_id: int | None = None
+    mensaje: str | None = None
