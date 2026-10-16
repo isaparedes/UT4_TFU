@@ -1,3 +1,4 @@
+
 services:
   db:
     image: postgres:16-alpine
@@ -13,17 +14,28 @@ services:
       timeout: 5s
       retries: 5
 
+  # Patrón de rendimiento: Caché-Aside
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   api:
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg2://tfu4:tfu4@db:5432/tfu4
       JWT_SECRET: cambiar-en-produccion
+      # Patrón de rendimiento: Caché-Aside
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
-    # Sin "ports": no se expone puerto fijo por instancia, así se puede
-    # levantar en varias réplicas (--scale api=3) sin choque de puertos.
-    # Se accede siempre a través del balanceador (nginx).
+      redis:
+        condition: service_healthy
 
   balanceador:
     image: nginx:alpine

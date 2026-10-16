@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from redis.exceptions import RedisError
+from app.cache import redis_client
 from app.database import Base, engine
-from app import models  # noqa: F401  (registra los modelos en Base.metadata)
+from app import models  
 from app import auth, animales, hogares, adopciones
 
 app = FastAPI(
@@ -19,7 +21,7 @@ def crear_tablas():
 
 # Patrón de disponibilidad: Health Endpoint Monitoring (API)
 @app.get("/api-health")
-def salud():
+def api_health():
     """Usado por el balanceador / demo para saber qué instancia respondió."""
     import socket
     return {"status": "healthy", "instance": socket.gethostname()}
@@ -42,6 +44,26 @@ def health_check():
             detail={
                 "status": "unhealthy",
                 "database": "disconnected"
+            }
+        )
+
+# Patrón de disponibilidad: Health Endpoint Monitoring (Redis)
+@app.get("/redis-health")
+def redis_health_check():
+    try:
+        redis_client.ping()
+
+        return {
+            "status": "healthy",
+            "redis": "connected"
+        }
+
+    except RedisError:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "unhealthy",
+                "redis": "disconnected"
             }
         )
 

@@ -11,6 +11,9 @@ from app.database import get_db
 from app.auth import validar_token
 from app import models, schemas, animales, hogares
 
+# Patrón de rendimiento: Caché-Aside
+from app.cache import obtener_cache, guardar_cache, invalidar_cache_animales
+
 router = APIRouter(prefix="/adopciones", tags=["Adopciones"])
 
 
@@ -19,7 +22,6 @@ def crear_solicitud(datos: schemas.SolicitudCreate, db: Session = Depends(get_db
                      _usuario: dict = Depends(validar_token)):
     hogar_id = None
     try:
-        # --- Transacción ACID: reservar animal + asignar hogar, todo o nada ---
         animal = animales.reservar_animal(db, datos.animal_id)
 
         if datos.asignar_hogar:
@@ -36,12 +38,16 @@ def crear_solicitud(datos: schemas.SolicitudCreate, db: Session = Depends(get_db
             estado=models.EstadoSolicitud.PENDIENTE,
         )
         db.add(solicitud)
-        db.commit()          # <- se confirman animal + hogar + solicitud juntos
+        db.commit()    
+
+        # Patrón de rendimiento: Caché-Aside
+        invalidar_cache_animales(animal.id)
+
         db.refresh(solicitud)
         return solicitud
 
     except ValueError as e:
-        db.rollback()        # <- si algo falla, no queda nada reservado a medias
+        db.rollback()        
         raise HTTPException(status_code=409, detail=str(e))
 
 
@@ -61,5 +67,9 @@ def aprobar_solicitud(solicitud_id: int, db: Session = Depends(get_db),
     solicitud.estado = models.EstadoSolicitud.APROBADA
     db.add_all([animal, solicitud])
     db.commit()
+
+    # Patrón de rendimiento: Caché-Aside
+    invalidar_cache_animales(animal.id)
+
     db.refresh(solicitud)
     return solicitud
