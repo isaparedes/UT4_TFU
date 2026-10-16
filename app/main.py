@@ -47,7 +47,7 @@ def health_check():
             }
         )
 
-# Patrón de disponibilidad: Health Endpoint Monitoring (Redis)
+# Patrón de disponibilidad: Health Endpoint Monitoring (Caché Redis)
 @app.get("/redis-health")
 def redis_health_check():
     try:
