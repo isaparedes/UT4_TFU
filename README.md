@@ -3,7 +3,7 @@
 API REST que demuestra la aplicación de diferentes patrones de arquitectura:
 
 ### Disponibilidad
-- **Health Endpoint Monitoring:** endpoints de health check para los servicios de la app (API, base de datos PosgreSQL, caché Redis).
+- **Health Endpoint Monitoring:** endpoints de health check para los servicios de la app (API, base de datos PostgreSQL, caché Redis).
 - **Rate Limiting:** límite de 10 requests/min por IP.
 
 ### Rendimiento
