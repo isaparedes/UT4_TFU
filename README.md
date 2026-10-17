@@ -63,4 +63,3 @@ En Windows (PowerShell), usar la version equivalente:
 ```powershell
 ./demo.ps1
 ```
-
