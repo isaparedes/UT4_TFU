@@ -8,7 +8,7 @@ API REST que demuestra la aplicación de diferentes patrones de arquitectura:
 
 ### Rendimiento
 - **Caché-Aside:** utiliza Redis para almacenar temporalmente los datos de los animales consultados (consulta muy frecuente).
-- **Queue-Based Load Leveling:** las solicitudes de adopción se encolan en Redis mediante RQ y son procesadas de forma asíncrona por un administrador.
+- **Queue-Based Load Leveling:** las solicitudes de adopción se encolan en Redis mediante RQ y son posteriormente consumidas por un worker.
 
 ### Seguridad:
 - **Federated Identity:** permite que los usuarios se autentiquen mediante Google OAuth, delegando la autenticación en un proveedor de identidad externo.
