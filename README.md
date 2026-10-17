@@ -20,17 +20,17 @@ API REST que demuestra la aplicación de diferentes patrones de arquitectura:
 ## 1. Crear archivo .env en la raíz del proyecto con el siguiente contenido
 
 ```
-JWT_SECRET=MySecretKeyJWT1234TFUANDISII!
-SESSION_SECRET=TFU42026CarballidoMartonyParedes!
+JWT_SECRET=
+SESSION_SECRET=
 
-GOOGLE_CLIENT_ID=1056744787612-esper78stkm81lc6v25h2rpvl7mjhual.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
-GOOGLE_REDIRECT_URI=http://localhost:8000/auth/google/callback
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=
 
-DATABASE_URL=postgresql+psycopg2://tfu4:tfu4@db:5432/tfu4
+DATABASE_URL=
 
-REDIS_URL=redis://redis:6379/0
-REDIS_QUEUE_URL=redis://redis:6379/1
+REDIS_URL=
+REDIS_QUEUE_URL=
 
 JOB_TIMEOUT=60
 JOB_RESULT_TTL=86400
