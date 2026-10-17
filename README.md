@@ -1,7 +1,20 @@
 # TFU4 - Refugio de animales (UT4)
 
-API REST que demuestra: componentes e interfaces, escalabilidad horizontal,
-contenedores (Docker), transacciones ACID y servicios sin estado.
+API REST que demuestra la aplicación de diferentes patrones de arquitectura:
+
+Disponibilidad: 
+- Health Endpoint Monitoring
+- Rate Limiting
+
+Rendimiento:
+- Caché-Aside
+- Queue-Based Load Leveling
+
+Seguridad:
+- Federated Identity
+- Valet Key
+
+Facilidad de modificación y despliegue: External Configuration Store
 
 ## Levantar la app
 
@@ -26,11 +39,3 @@ En Windows (PowerShell), usar la version equivalente:
 ./demo.ps1
 ```
 
-## Estructura
-
-- `app/auth.py` — componente Autenticación (JWT, sin estado)
-- `app/animales.py` — componente Animales
-- `app/hogares.py` — componente Hogares Transitorios
-- `app/adopciones.py` — componente Adopciones (orquesta a los dos anteriores
-  dentro de una transacción ACID sobre PostgreSQL)
-- `docker-compose.yaml` — Postgres + API (escalable) + balanceador nginx

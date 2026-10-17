@@ -5,18 +5,21 @@ Componente Adopciones.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from redis.exceptions import RedisError
 from rq.job import Job
 from rq.exceptions import NoSuchJobError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth import validar_token, requerir_rol
+from app.auth import validar_token, requerir_rol, crear_valet_key, validar_valet_key
 from app import models, schemas
 from app.queue import adopciones_queue, redis_queue
 from app.tasks import procesar_solicitud_adopcion
 from app.cache import invalidar_cache_animales
 from app.settings import settings
+
+valet_bearer = HTTPBearer()
 
 router = APIRouter(prefix="/adopciones", tags=["Adopciones"])
 
@@ -122,7 +125,6 @@ def consultar_trabajo(
             detail="No se pudo consultar la cola",
         )
 
-
 @router.get("", response_model=list[schemas.SolicitudOut])
 def listar_solicitudes(
     db: Session = Depends(get_db),
@@ -141,7 +143,6 @@ def listar_solicitudes(
         return db.query(models.Solicitud).all()
 
     raise HTTPException(status_code=403, detail="No tenés permiso")
-
 
 @router.post("/{solicitud_id}/aprobar", response_model=schemas.SolicitudOut)
 def aprobar_solicitud(
@@ -228,7 +229,6 @@ def aprobar_solicitud(
 
     return solicitud
 
-
 @router.post("/{solicitud_id}/rechazar", response_model=schemas.SolicitudOut)
 def rechazar_solicitud(
     solicitud_id: int,
@@ -250,3 +250,55 @@ def rechazar_solicitud(
     db.commit()
     db.refresh(solicitud)
     return solicitud
+
+# Patrón de seguridad: Valet Key
+@router.post("/{solicitud_id}/valet-key")
+def generar_valet_key(
+    solicitud_id: int,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(requerir_rol(models.Rol.ADMIN)),
+):
+    solicitud = db.get(models.Solicitud, solicitud_id)
+
+    if solicitud is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Solicitud no encontrada",
+        )
+
+    clave = crear_valet_key(
+        solicitud_id=solicitud_id,
+        creador_email=usuario["email"],
+    )
+
+    return {
+        "valet_key": clave,
+        "tipo": "solicitud:read",
+        "solicitud_id": solicitud_id,
+        "expira_en_segundos": settings.VALET_TTL,
+    }
+
+@router.get(
+    "/compartida/{solicitud_id}",
+    response_model=schemas.SolicitudCompartidaOut,
+)
+def consultar_solicitud_compartida(
+    solicitud_id: int,
+    credenciales: HTTPAuthorizationCredentials = Depends(valet_bearer),
+    db: Session = Depends(get_db),
+):
+    validar_valet_key(
+        token=credenciales.credentials,
+        solicitud_id=solicitud_id,
+    )
+
+    solicitud = db.get(models.Solicitud, solicitud_id)
+
+    if solicitud is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Solicitud no encontrada",
+        )
+
+    return solicitud
+

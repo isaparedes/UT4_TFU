@@ -26,8 +26,6 @@ def crear_hogar(datos: schemas.HogarCreate, db: Session = Depends(get_db),
 def listar_hogares(db: Session = Depends(get_db), _usuario: dict = Depends(validar_token)):
     return db.query(models.HogarTransitorio).all()
 
-
-# ---- IAsignarHogar: usada solo por el componente Adopciones (no es endpoint HTTP) ----
 def asignar_hogar(db: Session, hogar_id: int) -> models.HogarTransitorio:
     hogar = db.get(models.HogarTransitorio, hogar_id)
     if not hogar:
@@ -37,7 +35,6 @@ def asignar_hogar(db: Session, hogar_id: int) -> models.HogarTransitorio:
     hogar.disponible = False
     db.add(hogar)
     return hogar
-
 
 def primer_hogar_disponible(db: Session) -> models.HogarTransitorio | None:
     return db.query(models.HogarTransitorio).filter_by(disponible=True).first()

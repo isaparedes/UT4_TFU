@@ -47,8 +47,53 @@ def crear_token(usuario: models.Usuario) -> str:
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
+# Patrón de seguridad: Valet Key
+def crear_valet_key(solicitud_id: int, creador_email: str) -> str:
+    """Genera una clave temporal limitada a una solicitud."""
 
-# ---- IValidarToken: dependencia que consumen Animales, Hogares y Adopciones ----
+    ahora = datetime.utcnow()
+
+    payload = {
+        "sub": creador_email,
+        "typ": "valet_key",
+        "scope": "solicitud:read",
+        "solicitud_id": solicitud_id,
+        "iat": ahora,
+        "exp": ahora + timedelta(minutes=5),
+    }
+
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+# Patrón de seguridad: Valet Key
+def validar_valet_key(token: str, solicitud_id: int) -> dict:
+    """Comprueba que la clave sea válida para esta solicitud."""
+
+    error = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Valet Key inválida o vencida",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+
+        if (
+            payload.get("typ") != "valet_key"
+            or payload.get("scope") != "solicitud:read"
+            or payload.get("solicitud_id") != solicitud_id
+            or not payload.get("sub")
+        ):
+            raise error
+
+        return payload
+
+    except JWTError:
+        raise error
+
 def validar_token(
     credenciales=Depends(oauth2_scheme)
 ) -> dict:
@@ -67,6 +112,9 @@ def validar_token(
             algorithms=[ALGORITHM],
         )
         email = payload.get("sub")
+        
+        if payload.get("typ", "access") != "access":
+            raise credenciales_invalidas
 
         if email is None:
             raise credenciales_invalidas
@@ -95,8 +143,6 @@ def requerir_admin(usuario: dict = Depends(validar_token)) -> dict:
         raise HTTPException(status_code=403, detail="Requiere rol admin")
     return usuario
 
-
-# ---- IAutenticacion: registro y login ----
 @router.post("/registro", response_model=schemas.Token, status_code=201)
 def registrar(datos: schemas.UsuarioCreate, db: Session = Depends(get_db)):
     if db.query(models.Usuario).filter_by(email=datos.email).first():
@@ -119,7 +165,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     return schemas.Token(access_token=crear_token(usuario))
 
-
+# Patrón de seguridad: Federated Identity
 @router.get("/google/login", tags=["Autenticación"])
 async def login_google(request: Request):
     """Inicia el flujo de autenticación federada con Google."""

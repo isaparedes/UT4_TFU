@@ -29,7 +29,6 @@ class EstadoSolicitud(str, enum.Enum):
     APROBADA = "aprobada"
     RECHAZADA = "rechazada"
 
-# ---- Componente: Autenticación ----
 class Usuario(Base):
     __tablename__ = "usuarios"
 
@@ -40,7 +39,6 @@ class Usuario(Base):
     # Patrón de seguridad: Federated Identity
     google_sub = Column(String, unique=True, nullable=True)
 
-# ---- Componente: Animales ----
 class Animal(Base):
     __tablename__ = "animales"
 
@@ -50,7 +48,6 @@ class Animal(Base):
     estado = Column(Enum(EstadoAnimal), nullable=False, default=EstadoAnimal.DISPONIBLE)
     creado_en = Column(DateTime, default=datetime.utcnow)
 
-# ---- Componente: Hogares Transitorios ----
 class HogarTransitorio(Base):
     __tablename__ = "hogares_transitorios"
 
@@ -59,7 +56,6 @@ class HogarTransitorio(Base):
     direccion = Column(String, nullable=False)
     disponible = Column(Boolean, nullable=False, default=True)
 
-# ---- Componente: Adopciones ----
 class Solicitud(Base):
     __tablename__ = "solicitudes"
 

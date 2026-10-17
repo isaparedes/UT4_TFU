@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     JOB_FAILURE_TTL: int = 604800
     CACHE_TTL_LISTA: int = 30
     CACHE_TTL_DETALLE: int = 60
+    VALET_TTL: int = 60
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

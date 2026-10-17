@@ -3,7 +3,6 @@ from pydantic import BaseModel, EmailStr
 from app.models import Rol, EspecieAnimal, EstadoAnimal, EstadoSolicitud
 from typing import Literal
 
-# ---- Autenticación ----
 class UsuarioCreate(BaseModel):
     email: EmailStr
     password: str
@@ -13,7 +12,6 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
-# ---- Animales ----
 class AnimalCreate(BaseModel):
     nombre: str
     especie: EspecieAnimal
@@ -27,11 +25,9 @@ class AnimalOut(BaseModel):
     class Config:
         from_attributes = True
 
-# ---- Hogares Transitorios ----
 class HogarCreate(BaseModel):
     responsable: str
     direccion: str
-
 
 class HogarOut(BaseModel):
     id: int
@@ -42,7 +38,6 @@ class HogarOut(BaseModel):
     class Config:
         from_attributes = True
 
-# ---- Adopciones ----
 class SolicitudCreate(BaseModel):
     animal_id: int
 
@@ -51,6 +46,16 @@ class SolicitudOut(BaseModel):
     animal_id: int
     hogar_id: int | None
     interesado_email: str
+    estado: EstadoSolicitud
+
+    class Config:
+        from_attributes = True
+
+# Patrón de seguridad: Valet Key
+class SolicitudCompartidaOut(BaseModel):
+    id: int
+    animal_id: int
+    hogar_id: int | None
     estado: EstadoSolicitud
 
     class Config:
@@ -68,3 +73,5 @@ class EstadoTrabajo(BaseModel):
     estado: str
     solicitud_id: int | None = None
     mensaje: str | None = None
+
+
