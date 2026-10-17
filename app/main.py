@@ -8,6 +8,8 @@ from app import models
 from app import auth, animales, hogares, adopciones
 from app.settings import settings
 from starlette.middleware.sessions import SessionMiddleware
+from fastapi import FastAPI, HTTPException, Depends
+from app.auth import requerir_admin
 
 app = FastAPI(
     title="TFU4 - Refugio de animales",
@@ -29,14 +31,14 @@ def crear_tablas():
     Base.metadata.create_all(bind=engine)
 
 # Patrón de disponibilidad: Health Endpoint Monitoring (API)
-@app.get("/api-health")
+@app.get("/api-health", dependencies=[Depends(requerir_admin)])
 def api_health():
     """Usado por el balanceador / demo para saber qué instancia respondió."""
     import socket
     return {"status": "healthy", "instance": socket.gethostname()}
 
 # Patrón de disponibilidad: Health Endpoint Monitoring (Base de datos)
-@app.get("/db-health")
+@app.get("/db-health", dependencies=[Depends(requerir_admin)])
 def health_check():
     try:
         with engine.connect() as connection:
@@ -57,7 +59,7 @@ def health_check():
         )
 
 # Patrón de disponibilidad: Health Endpoint Monitoring (Caché Redis)
-@app.get("/redis-health")
+@app.get("/redis-health", dependencies=[Depends(requerir_admin)])
 def redis_health_check():
     try:
         redis_client.ping()

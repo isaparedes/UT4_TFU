@@ -1,16 +1,16 @@
+
 """
 Componente Autenticación.
-
 """
 import secrets
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from authlib.integrations.starlette_client import OAuth
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from authlib.integrations.starlette_client import OAuth
 
 from app.database import get_db
 from app import models, schemas
@@ -25,9 +25,8 @@ oauth2_scheme = HTTPBearer()
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
-# Patrón de seguridad: Federated Identity
+# Patrón: Federated Identity
 oauth = OAuth()
-
 oauth.register(
     name="google",
     client_id=settings.GOOGLE_CLIENT_ID, # Patrón de facilidad de modificación y despliegue: External Configuration Store
@@ -43,63 +42,15 @@ def crear_token(usuario: models.Usuario) -> str:
     payload = {
         "sub": usuario.email,
         "rol": usuario.rol.value,
-        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES), 
+        "typ": "access",
+        "exp": datetime.utcnow()
+        + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-# Patrón de seguridad: Valet Key
-def crear_valet_key(solicitud_id: int, creador_email: str) -> str:
-    """Genera una clave temporal limitada a una solicitud."""
 
-    ahora = datetime.utcnow()
-
-    payload = {
-        "sub": creador_email,
-        "typ": "valet_key",
-        "scope": "solicitud:read",
-        "solicitud_id": solicitud_id,
-        "iat": ahora,
-        "exp": ahora + timedelta(minutes=5),
-    }
-
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-# Patrón de seguridad: Valet Key
-def validar_valet_key(token: str, solicitud_id: int) -> dict:
-    """Comprueba que la clave sea válida para esta solicitud."""
-
+def validar_token(credenciales=Depends(oauth2_scheme)) -> dict:
     error = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Valet Key inválida o vencida",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    try:
-        payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-        )
-
-        if (
-            payload.get("typ") != "valet_key"
-            or payload.get("scope") != "solicitud:read"
-            or payload.get("solicitud_id") != solicitud_id
-            or not payload.get("sub")
-        ):
-            raise error
-
-        return payload
-
-    except JWTError:
-        raise error
-
-def validar_token(
-    credenciales=Depends(oauth2_scheme)
-) -> dict:
-    token = credenciales.credentials
-
-    credenciales_invalidas = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Credenciales inválidas",
         headers={"WWW-Authenticate": "Bearer"},
@@ -107,22 +58,22 @@ def validar_token(
 
     try:
         payload = jwt.decode(
-            token,
+            credenciales.credentials,
             SECRET_KEY,
             algorithms=[ALGORITHM],
         )
+
         email = payload.get("sub")
-        
-        if payload.get("typ", "access") != "access":
-            raise credenciales_invalidas
+        rol = payload.get("rol")
 
-        if email is None:
-            raise credenciales_invalidas
+        if not email or not rol or payload.get("typ", "access") != "access":
+            raise error
 
-        return {"email": email, "rol": payload.get("rol")}
+        return {"email": email, "rol": rol}
 
     except JWTError:
-        raise credenciales_invalidas
+        raise error
+
 
 def requerir_rol(*roles: models.Rol):
     roles_permitidos = {rol.value for rol in roles}
@@ -139,60 +90,104 @@ def requerir_rol(*roles: models.Rol):
 
 
 def requerir_admin(usuario: dict = Depends(validar_token)) -> dict:
-    if usuario["rol"] != "admin":
+    if usuario.get("rol") != models.Rol.ADMIN.value:
         raise HTTPException(status_code=403, detail="Requiere rol admin")
     return usuario
 
+
+# Patrón: Valet Key
+def crear_valet_key(solicitud_id: int, creador_email: str) -> str:
+    ahora = datetime.utcnow()
+    payload = {
+        "sub": creador_email,
+        "typ": "valet_key",
+        "scope": "solicitud:read",
+        "solicitud_id": solicitud_id,
+        "iat": ahora,
+        "exp": ahora + timedelta(seconds=settings.VALET_TTL), # Patrón de facilidad de modificación y despliegue: External Configuration Store
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def validar_valet_key(token: str, solicitud_id: int) -> dict:
+    error = HTTPException(
+        status_code=401,
+        detail="Valet Key inválida o vencida",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        if (
+            payload.get("typ") != "valet_key"
+            or payload.get("scope") != "solicitud:read"
+            or payload.get("solicitud_id") != solicitud_id
+            or not payload.get("sub")
+        ):
+            raise error
+
+        return payload
+    except JWTError:
+        raise error
+
+
 @router.post("/registro", response_model=schemas.Token, status_code=201)
 def registrar(datos: schemas.UsuarioCreate, db: Session = Depends(get_db)):
-    if db.query(models.Usuario).filter_by(email=datos.email).first():
-        raise HTTPException(status_code=400, detail="El email ya está registrado")
+    email = str(datos.email).strip().lower()
+
+    if db.query(models.Usuario).filter_by(email=email).first():
+        raise HTTPException(status_code=409, detail="El email ya está registrado")
+
     usuario = models.Usuario(
-        email=datos.email,
+        email=email,
         password_hash=pwd_context.hash(datos.password),
-        rol=models.Rol(datos.rol),
+        rol=models.Rol.ADOPTANTE,
     )
     db.add(usuario)
     db.commit()
     db.refresh(usuario)
+
     return schemas.Token(access_token=crear_token(usuario))
 
 
 @router.post("/login", response_model=schemas.Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    usuario = db.query(models.Usuario).filter_by(email=form_data.username).first()
-    if not usuario or not pwd_context.verify(form_data.password, usuario.password_hash):
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    email = form_data.username.strip().lower()
+    usuario = db.query(models.Usuario).filter_by(email=email).first()
+
+    if (
+        not usuario
+        or not pwd_context.verify(form_data.password, usuario.password_hash)
+    ):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
     return schemas.Token(access_token=crear_token(usuario))
 
-# Patrón de seguridad: Federated Identity
-@router.get("/google/login", tags=["Autenticación"])
+
+# Patrón: Federated Identity
+@router.get("/google/login")
 async def login_google(request: Request):
-    """Inicia el flujo de autenticación federada con Google."""
-
-    client_id = settings.GOOGLE_CLIENT_ID # Patrón de facilidad de modificación y despliegue: External Configuration Store
-    client_secret = settings.GOOGLE_CLIENT_SECRET # Patrón de facilidad de modificación y despliegue: External Configuration Store
-
-    if not client_id or not client_secret:
+    if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET: # Patrón de facilidad de modificación y despliegue: External Configuration Store
         raise HTTPException(
             status_code=500,
             detail="Faltan las credenciales de Google en la configuración",
         )
 
-    redirect_uri = settings.GOOGLE_REDIRECT_URI # Patrón de facilidad de modificación y despliegue: External Configuration Store
-
     return await oauth.google.authorize_redirect(
         request,
-        redirect_uri,
+        settings.GOOGLE_REDIRECT_URI, # Patrón de facilidad de modificación y despliegue: External Configuration Store
     )
 
-# Patrón de seguridad: Federated Identity
-@router.get("/google/callback", response_model=schemas.Token, tags=["Autenticación"])
+
+@router.get("/google/callback", response_model=schemas.Token)
 async def callback_google(
     request: Request,
     db: Session = Depends(get_db),
 ):
-
     try:
         token_google = await oauth.google.authorize_access_token(request)
     except Exception as exc:
@@ -223,16 +218,12 @@ async def callback_google(
 
     usuario = (
         db.query(models.Usuario)
-        .filter(models.Usuario.google_sub == google_sub)
+        .filter_by(google_sub=google_sub)
         .first()
     )
 
     if usuario is None:
-        usuario = (
-            db.query(models.Usuario)
-            .filter(models.Usuario.email == email)
-            .first()
-        )
+        usuario = db.query(models.Usuario).filter_by(email=email).first()
 
         if usuario is not None:
             if usuario.google_sub and usuario.google_sub != google_sub:
@@ -240,19 +231,14 @@ async def callback_google(
                     status_code=409,
                     detail="La cuenta ya está vinculada a otra identidad de Google",
                 )
-
             usuario.google_sub = google_sub
-
         else:
-            password_aleatoria = secrets.token_urlsafe(32)
-
             usuario = models.Usuario(
                 email=email,
-                password_hash=pwd_context.hash(password_aleatoria),
+                password_hash=pwd_context.hash(secrets.token_urlsafe(32)),
                 rol=models.Rol.ADOPTANTE,
                 google_sub=google_sub,
             )
-
             db.add(usuario)
 
         try:

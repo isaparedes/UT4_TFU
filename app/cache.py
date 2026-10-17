@@ -25,9 +25,8 @@ def guardar_cache(clave: str, datos, ttl: int = 60):
     except RedisError:
         pass
 
-
 def invalidar_cache_animales(animal_id: int | None = None):
-    claves = ["animales:list"]
+    claves = ["animales:list", "animales:disponibles"]
 
     if animal_id is not None:
         claves.append(f"animal:{animal_id}")
@@ -36,3 +35,5 @@ def invalidar_cache_animales(animal_id: int | None = None):
         redis_client.delete(*claves)
     except RedisError:
         pass
+
+
