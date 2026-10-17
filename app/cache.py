@@ -1,12 +1,12 @@
 # Patrón de rendimiento: Caché-Aside
 import json
-import os
 
 import redis
 from redis.exceptions import RedisError
+from app.settings import settings
 
 redis_client = redis.Redis.from_url(
-    os.getenv("REDIS_URL", "redis://redis:6379/0"),
+    settings.REDIS_URL, # Patrón de facilidad de modificación y despliegue: External Configuration Store
     decode_responses=True,
 )
 

@@ -2,14 +2,11 @@
 Configuración de la base de datos (PostgreSQL).
 
 """
-import os
+from app.settings import settings
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg2://tfu3:tfu3@db:5432/tfu3",
-)
+DATABASE_URL = settings.DATABASE_URL # Patrón de facilidad de modificación y despliegue: External Configuration Store
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

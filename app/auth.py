@@ -2,7 +2,6 @@
 Componente Autenticación.
 
 """
-import os
 import secrets
 from datetime import datetime, timedelta
 
@@ -15,10 +14,11 @@ from authlib.integrations.starlette_client import OAuth
 
 from app.database import get_db
 from app import models, schemas
+from app.settings import settings
 
-SECRET_KEY = os.getenv("JWT_SECRET", "cambiar-en-produccion")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+SECRET_KEY = settings.JWT_SECRET # Patrón de facilidad de modificación y despliegue: External Configuration Store
+ALGORITHM = settings.JWT_ALGORITHM # Patrón de facilidad de modificación y despliegue: External Configuration Store
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES # Patrón de facilidad de modificación y despliegue: External Configuration Store
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = HTTPBearer()
@@ -30,8 +30,8 @@ oauth = OAuth()
 
 oauth.register(
     name="google",
-    client_id=os.getenv("GOOGLE_CLIENT_ID"),
-    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    client_id=settings.GOOGLE_CLIENT_ID, # Patrón de facilidad de modificación y despliegue: External Configuration Store
+    client_secret=settings.GOOGLE_CLIENT_SECRET, # Patrón de facilidad de modificación y despliegue: External Configuration Store
     server_metadata_url=(
         "https://accounts.google.com/.well-known/openid-configuration"
     ),
@@ -43,7 +43,7 @@ def crear_token(usuario: models.Usuario) -> str:
     payload = {
         "sub": usuario.email,
         "rol": usuario.rol.value,
-        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES), 
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -124,8 +124,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 async def login_google(request: Request):
     """Inicia el flujo de autenticación federada con Google."""
 
-    client_id = os.getenv("GOOGLE_CLIENT_ID")
-    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    client_id = settings.GOOGLE_CLIENT_ID # Patrón de facilidad de modificación y despliegue: External Configuration Store
+    client_secret = settings.GOOGLE_CLIENT_SECRET # Patrón de facilidad de modificación y despliegue: External Configuration Store
 
     if not client_id or not client_secret:
         raise HTTPException(
@@ -133,10 +133,7 @@ async def login_google(request: Request):
             detail="Faltan las credenciales de Google en la configuración",
         )
 
-    redirect_uri = os.getenv(
-        "GOOGLE_REDIRECT_URI",
-        "http://localhost:8000/auth/google/callback",
-    )
+    redirect_uri = settings.GOOGLE_REDIRECT_URI # Patrón de facilidad de modificación y despliegue: External Configuration Store
 
     return await oauth.google.authorize_redirect(
         request,

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import validar_token
 from app import models, schemas
+from app.settings import settings
 
 # Patrón de rendimiento: Caché-Aside
 from app.cache import obtener_cache, guardar_cache, invalidar_cache_animales
@@ -51,7 +52,7 @@ def listar_animales(
         for animal in animales
     ]
 
-    guardar_cache(clave, resultado, ttl=30)
+    guardar_cache(clave, resultado, ttl=settings.CACHE_TTL_LISTA) # Patrón de facilidad de modificación y despliegue: External Configuration Store
 
     return resultado
 
@@ -82,7 +83,7 @@ def obtener_animal(
         animal, from_attributes=True
     ).model_dump(mode="json")
 
-    guardar_cache(clave, resultado, ttl=60)
+    guardar_cache(clave, resultado, ttl=settings.CACHE_TTL_DETALLE) # Patrón de facilidad de modificación y despliegue: External Configuration Store
 
     return resultado
 

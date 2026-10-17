@@ -1,4 +1,3 @@
-import os
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -7,6 +6,7 @@ from app.cache import redis_client
 from app.database import Base, engine
 from app import models  
 from app import auth, animales, hogares, adopciones
+from app.settings import settings
 from starlette.middleware.sessions import SessionMiddleware
 
 app = FastAPI(
@@ -18,7 +18,7 @@ app = FastAPI(
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.environ["SESSION_SECRET"],
+    secret_key= settings.SESSION_SECRET, # Patrón de facilidad de modificación y despliegue: External Configuration Store
     same_site="lax",
     https_only=False,  
 )

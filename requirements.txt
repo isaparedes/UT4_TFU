@@ -12,3 +12,4 @@ rq
 Authlib
 itsdangerous
 httpx
+pydantic-settings

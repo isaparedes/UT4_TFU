@@ -1,10 +1,10 @@
 # Patrón de rendimiento: Queue-Based Load Leveling
-import os
 import redis
 from rq import Queue
+from app.settings import settings
 
 redis_queue = redis.Redis.from_url(
-    os.getenv("REDIS_QUEUE_URL", "redis://redis:6379/1")
+    settings.REDIS_QUEUE_URL # Patrón de facilidad de modificación y despliegue: External Configuration Store
 )
 
 adopciones_queue = Queue(

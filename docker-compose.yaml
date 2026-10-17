@@ -26,18 +26,18 @@ services:
   api:
     build: .
     env_file:
-      - .env  # <--- AQUÍ ES DONDE VA. Esto lee tu archivo .env de la raíz
+      - .env  
     environment:
-      DATABASE_URL: postgresql+psycopg2://tfu4:tfu4@db:5432/tfu4
-      JWT_SECRET: cambiar-en-produccion
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
       # Patrón de rendimiento: Caché-Aside
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: ${REDIS_URL}
       # Patrón de rendimiento: Queue-Based Load Leveling
-      REDIS_QUEUE_URL: redis://redis:6379/1
-      # Mapeamos aquí las variables de Google y Session que estaban en la DB por error:
+      REDIS_QUEUE_URL: ${REDIS_QUEUE_URL}
+      # Patrón de seguridad: Federated Identity
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_REDIRECT_URI: http://localhost:8000/auth/google/callback
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
       SESSION_SECRET: ${SESSION_SECRET}
     depends_on:
       db:
@@ -59,12 +59,12 @@ services:
     build: .
     command: rq worker adopciones --url redis://redis:6379/1
     env_file:
-      - .env  # (Opcional si el worker también necesita leer el .env)
+      - .env  
     environment:
-      DATABASE_URL: postgresql+psycopg2://tfu4:tfu4@db:5432/tfu4
-      JWT_SECRET: cambiar-en-produccion
-      REDIS_URL: redis://redis:6379/0
-      REDIS_QUEUE_URL: redis://redis:6379/1
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      REDIS_URL: ${REDIS_URL}
+      REDIS_QUEUE_URL: ${REDIS_QUEUE_URL}
       SESSION_SECRET: ${SESSION_SECRET}
     depends_on:
       db:

@@ -16,6 +16,7 @@ from app import models, schemas
 from app.queue import adopciones_queue, redis_queue
 from app.tasks import procesar_solicitud_adopcion
 from app.cache import invalidar_cache_animales
+from app.settings import settings
 
 router = APIRouter(prefix="/adopciones", tags=["Adopciones"])
 
@@ -42,9 +43,9 @@ def crear_solicitud(
             ),
             job_id=trabajo_id,
             meta={"requester_email": usuario["email"]},
-            timeout=60,
-            result_ttl=86400,
-            failure_ttl=604800,
+            timeout=settings.JOB_TIMEOUT, # Patrón de facilidad de modificación y despliegue: External Configuration Store
+            result_ttl=settings.JOB_RESULT_TTL, # Patrón de facilidad de modificación y despliegue: External Configuration Store
+            failure_ttl=settings.JOB_FAILURE_TTL, # Patrón de facilidad de modificación y despliegue: External Configuration Store
         )
 
         return {
