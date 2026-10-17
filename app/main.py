@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -6,12 +7,20 @@ from app.cache import redis_client
 from app.database import Base, engine
 from app import models  
 from app import auth, animales, hogares, adopciones
+from starlette.middleware.sessions import SessionMiddleware
 
 app = FastAPI(
     title="TFU4 - Refugio de animales",
-    description="Demo de componentes, escalabilidad horizontal, contenedores, "
-                 "ACID y servicios sin estado (UT4).",
+    description="Demo de aplicación de patrones de disponibilidad, rendimiento, "
+    "seguridad y facilidad de modificación/despliegue (UT4).",
     version="1.0.0",
+)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.environ["SESSION_SECRET"],
+    same_site="lax",
+    https_only=False,  
 )
 
 

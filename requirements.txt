@@ -9,3 +9,6 @@ email-validator==2.2.0
 python-multipart==0.0.9
 redis
 rq
+Authlib
+itsdangerous
+httpx

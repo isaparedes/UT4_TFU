@@ -1,8 +1,6 @@
 """
 Configuración de la base de datos (PostgreSQL).
-Cada componente comparte el mismo motor de conexión pero opera únicamente
-sobre sus propias tablas (ver models.py), preservando el bajo acoplamiento
-descripto en la Parte 1.
+
 """
 import os
 from sqlalchemy import create_engine

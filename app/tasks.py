@@ -1,5 +1,4 @@
-# Patrón: Queue-Based Load Leveling.
-
+# Patrón de rendimiento: Queue-Based Load Leveling.
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal

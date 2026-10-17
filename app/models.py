@@ -1,9 +1,6 @@
 """
-Modelos SQLAlchemy. Cada clase pertenece a un único componente:
-- Usuario           -> Autenticación
-- Animal            -> Animales
-- HogarTransitorio  -> Hogares Transitorios
-- Solicitud         -> Adopciones
+Modelos SQLAlchemy.
+
 """
 import enum
 from datetime import datetime
@@ -40,6 +37,8 @@ class Usuario(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     rol = Column(Enum(Rol), nullable=False, default=Rol.ADOPTANTE)
+    # Patrón de seguridad: Federated Identity
+    google_sub = Column(String, unique=True, nullable=True)
 
 # ---- Componente: Animales ----
 class Animal(Base):

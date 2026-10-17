@@ -1,18 +1,17 @@
 """
 Componente Autenticación.
-Expone IAutenticacion (registro/login) e IValidarToken (usada por los demás
-componentes como dependencia de FastAPI). Usa JWT: el token lleva toda la
-información necesaria, así que validar una request NO requiere consultar
-a este componente ni guardar sesión en ningún lado -> servicio sin estado.
+
 """
 import os
+import secrets
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.security import HTTPBearer, OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+from authlib.integrations.starlette_client import OAuth
 
 from app.database import get_db
 from app import models, schemas
@@ -22,9 +21,22 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = HTTPBearer()
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
+
+# Patrón de seguridad: Federated Identity
+oauth = OAuth()
+
+oauth.register(
+    name="google",
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url=(
+        "https://accounts.google.com/.well-known/openid-configuration"
+    ),
+    client_kwargs={"scope": "openid email profile"},
+)
 
 
 def crear_token(usuario: models.Usuario) -> str:
@@ -37,18 +49,30 @@ def crear_token(usuario: models.Usuario) -> str:
 
 
 # ---- IValidarToken: dependencia que consumen Animales, Hogares y Adopciones ----
-def validar_token(token: str = Depends(oauth2_scheme)) -> dict:
+def validar_token(
+    credenciales=Depends(oauth2_scheme)
+) -> dict:
+    token = credenciales.credentials
+
     credenciales_invalidas = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Credenciales inválidas",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+        email = payload.get("sub")
+
         if email is None:
             raise credenciales_invalidas
+
         return {"email": email, "rol": payload.get("rol")}
+
     except JWTError:
         raise credenciales_invalidas
 
@@ -80,8 +104,7 @@ def registrar(datos: schemas.UsuarioCreate, db: Session = Depends(get_db)):
     usuario = models.Usuario(
         email=datos.email,
         password_hash=pwd_context.hash(datos.password),
-        rol=models.Rol(datos.rol)
-,
+        rol=models.Rol(datos.rol),
     )
     db.add(usuario)
     db.commit()
@@ -94,4 +117,109 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     usuario = db.query(models.Usuario).filter_by(email=form_data.username).first()
     if not usuario or not pwd_context.verify(form_data.password, usuario.password_hash):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
+    return schemas.Token(access_token=crear_token(usuario))
+
+
+@router.get("/google/login", tags=["Autenticación"])
+async def login_google(request: Request):
+    """Inicia el flujo de autenticación federada con Google."""
+
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+
+    if not client_id or not client_secret:
+        raise HTTPException(
+            status_code=500,
+            detail="Faltan las credenciales de Google en la configuración",
+        )
+
+    redirect_uri = os.getenv(
+        "GOOGLE_REDIRECT_URI",
+        "http://localhost:8000/auth/google/callback",
+    )
+
+    return await oauth.google.authorize_redirect(
+        request,
+        redirect_uri,
+    )
+
+# Patrón de seguridad: Federated Identity
+@router.get("/google/callback", response_model=schemas.Token, tags=["Autenticación"])
+async def callback_google(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+
+    try:
+        token_google = await oauth.google.authorize_access_token(request)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="No se pudo completar la autenticación con Google",
+        ) from exc
+
+    usuario_google = token_google.get("userinfo")
+
+    if not usuario_google:
+        raise HTTPException(
+            status_code=401,
+            detail="Google no proporcionó información de identidad válida",
+        )
+
+    google_sub = usuario_google.get("sub")
+    email = usuario_google.get("email")
+    email_verificado = usuario_google.get("email_verified")
+
+    if not google_sub or not email or email_verificado is not True:
+        raise HTTPException(
+            status_code=401,
+            detail="La identidad o el email de Google no están verificados",
+        )
+
+    email = email.strip().lower()
+
+    usuario = (
+        db.query(models.Usuario)
+        .filter(models.Usuario.google_sub == google_sub)
+        .first()
+    )
+
+    if usuario is None:
+        usuario = (
+            db.query(models.Usuario)
+            .filter(models.Usuario.email == email)
+            .first()
+        )
+
+        if usuario is not None:
+            if usuario.google_sub and usuario.google_sub != google_sub:
+                raise HTTPException(
+                    status_code=409,
+                    detail="La cuenta ya está vinculada a otra identidad de Google",
+                )
+
+            usuario.google_sub = google_sub
+
+        else:
+            password_aleatoria = secrets.token_urlsafe(32)
+
+            usuario = models.Usuario(
+                email=email,
+                password_hash=pwd_context.hash(password_aleatoria),
+                rol=models.Rol.ADOPTANTE,
+                google_sub=google_sub,
+            )
+
+            db.add(usuario)
+
+        try:
+            db.commit()
+            db.refresh(usuario)
+        except Exception as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail="No se pudo guardar el usuario autenticado",
+            ) from exc
+
     return schemas.Token(access_token=crear_token(usuario))

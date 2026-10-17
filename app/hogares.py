@@ -1,7 +1,6 @@
 """
 Componente Hogares Transitorios.
-Expone IHogares (REST) y, para uso interno de Adopciones, asignar_hogar()
-(equivalente a IAsignarHogar).
+
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
