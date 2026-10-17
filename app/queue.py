@@ -4,7 +4,7 @@ from rq import Queue
 from app.settings import settings
 
 redis_queue = redis.Redis.from_url(
-    settings.REDIS_QUEUE_URL # Patrón de facilidad de modificación y despliegue: External Configuration Store
+    settings.REDIS_QUEUE_URL
 )
 
 adopciones_queue = Queue(
