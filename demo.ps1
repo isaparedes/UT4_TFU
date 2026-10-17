@@ -292,7 +292,7 @@ $codes |
         Write-Host ("  {0}: {1}" -f $_.Name, $_.Count)
     }
 
-Info "Con rate=10r/s y burst=10, la distribución depende de la configuración de Nginx y de la concurrencia."
+Info "Con rate=10r/m y burst=10, la distribución depende de la configuración de Nginx y de la concurrencia."
 
 Info "Esperando 10 segundos para que se recupere el límite..."
 Start-Sleep -Seconds 10
@@ -457,7 +457,6 @@ catch {
     Info "Abrí manualmente: $googleUrl"
 }
 
-Info "La demostración depende de que las credenciales y el callback de Google estén configurados."
 Info "Esperando 10 segundos antes de continuar..."
 Start-Sleep -Seconds 10
 
@@ -533,7 +532,6 @@ if ($LASTEXITCODE -ne 0) {
 Info "Para demostrar un cambio, modificá una variable en .env o en environment de Compose."
 Info "Después recreá la API con:"
 Write-Host "  docker compose up -d --build --force-recreate api"
-Info "No imprimas JWT_SECRET ni GOOGLE_CLIENT_SECRET."
 
 # ------------------------------------------------------------
 # Fin

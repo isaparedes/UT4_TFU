@@ -64,7 +64,7 @@ grep -c '^429$' "$TMP_CODES" || true
 printf 'Distribución de códigos:\n'
 sort "$TMP_CODES" | uniq -c
 rm -f "$TMP_CODES"
-info "Con Nginx configurado en 10r/s y burst=10, la cantidad de 429 depende de la concurrencia y del tráfico simultáneo."
+info "Con Nginx configurado en 10r/m y burst=10, la cantidad de 429 depende de la concurrencia y del tráfico simultáneo."
 
 # Dejar que se recupere el límite de solicitudes de Nginx.
 sleep 20
@@ -174,7 +174,7 @@ fi
 section "7. Facilidad de modificación/despliegue: External Configuration Store"
 info "Leyendo valores no secretos cargados desde la configuración de la aplicación (Settings / variables de entorno):"
 docker compose exec -T api python -c "from app.settings import settings; print('CACHE_TTL_LISTA =', settings.CACHE_TTL_LISTA); print('CACHE_TTL_DETALLE =', settings.CACHE_TTL_DETALLE); print('VALET_TTL =', settings.VALET_TTL); print('ACCESS_TOKEN_EXPIRE_MINUTES =', settings.ACCESS_TOKEN_EXPIRE_MINUTES); print('REDIS_URL =', settings.REDIS_URL)"
-info "Demostración de cambio: modificá una de esas variables en .env (o en environment de Compose) y recreá el servicio API con: docker compose up -d --build --force-recreate api. No imprimas JWT_SECRET ni GOOGLE_CLIENT_SECRET."
+info "Demostración de cambio: modificá una de esas variables en .env (o en environment de Compose) y recreá el servicio API con: docker compose up -d --build --force-recreate api."
 
 section "Fin de la demo"
 echo "Usuarios de demo: $ADMIN_EMAIL y $ADOPTER_EMAIL"
